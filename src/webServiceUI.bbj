@@ -1,0 +1,117 @@
+REM /**
+REM  * webServiceUI.bbj
+REM  * @author jasonj
+REM  *
+REM  */
+
+REM /**
+REM  * RestGUI.bbj
+REM  * author: Robert Del Prete
+REM  *
+REM  * Rest WebService Consumer demo
+REM  */
+
+REM set URL's for the Rest CC WebService
+sampleUsageURL$="http://localhost:8888/servlet/ChileCustomer"
+customerURL$="http://localhost:8888/servlet/ChileCustomer/customers"
+customerJSONURL$="http://localhost:8888/servlet/ChileCustomer/json/customers"
+getBalanceURL$="http://localhost:8888/servlet/ChileCustomer/balance?custnum=10"
+
+REM Get the HTTPClient
+client!= new org.apache.commons.httpclient.HttpClient()
+
+REM Obtain the instance of the BBjAPI object
+LET myAPI!=BBjAPI()
+
+REM Open the SysGui device
+SYSGUI=UNT
+OPEN (SYSGUI)"X0"
+
+REM Obtain the instance of the BBjSysGui object
+LET mySysGui!=myAPI!.getSysGui()
+
+REM Set addWindow param values
+X=100
+Y=100
+WIDTH=500
+HEIGHT=380
+TITLE$="REST Web Service Consumer"
+WSstaticText$ = "A web service is a method of communication between two electronic devices over the World Wide Web.  "
+WSstaticText$ = WSstaticText$ + "The REST-compliant Web service primary purpose is to manipulate XML representations of Web resources using a uniform set of " + $22$+ "stateless" + $22$ + " operations."
+
+REM Create a window
+myWindow! = mySysGui!.addWindow(X,Y,WIDTH+20,HEIGHT+20,TITLE$,$00010013$)
+buttonGroupBox! = myWindow!.addGroupBox(101,10,45,500,75,"Rest Web Service")
+WSstaticText! = myWindow!.addStaticText(102,15,60,480,55,wsstaticText$,$0000$)
+
+REM Make ListBox
+restLB!=myWindow!.addListButton(110,15,10,300,100,"",$$)
+restLB!.setFieldHeight(30)
+restLB!.addItem("Usage of the ChileCompany Rest WebService")
+restLB!.addItem("GET a list of customers")
+restLB!.addItem("GET a list of customers in JSON format")
+restLB!.addItem("GET cust num 10's balance")
+restLB!.selectIndex(0)
+
+REM Make Button
+AccessWSButton!=myWindow!.addButton(120,320,10,185,30,"Access Web Service!",$$)
+
+REM Make HTML Window
+restView!=myWindow!.addHtmlView(130,10,130,500,230,"",$$)
+
+REM add a StatusBar
+restStatus!=myWindow!.addStatusBar(140)
+
+REM Register the CALLBACK routines
+CALLBACK(ON_BUTTON_PUSH,AcessWSButton_Pushed,mySysGui!.getContext(),AccessWSButton!.getID())
+CALLBACK(ON_CLOSE,CANCEL,mySysGui!.getContext())
+
+myWindow!.setVisible(1)
+PROCESS_EVENTS
+
+AcessWSButton_Pushed:
+restView!.setText("")
+lbIndex=restLB!.getSelectedIndex()
+
+SWITCH lbIndex
+CASE 0
+    request!= new org.apache.commons.httpclient.methods.GetMethod(sampleUsageURL$)
+    client!.executeMethod(request!)
+    returnString$=request!.getResponseBodyAsString()
+    restView!.setText(returnString$)
+    restStatus!.setText(sampleUsageURL$)
+break
+
+CASE 1
+   request!= new org.apache.commons.httpclient.methods.GetMethod(customerURL$)
+   client!.executeMethod(request!)
+   returnString$=request!.getResponseBodyAsString()
+   restView!.setText(returnString$)
+   restStatus!.setText(customerURL$)
+break
+
+CASE 2
+   request!= new org.apache.commons.httpclient.methods.GetMethod(customerJSONURL$)
+   client!.executeMethod(request!)
+   returnString$=request!.getResponseBodyAsString()
+   restView!.setText(returnString$)
+   restStatus!.setText(customerJSONURL$)
+break
+
+CASE 3
+   request!= new org.apache.commons.httpclient.methods.GetMethod(getBalanceURL$)
+   client!.executeMethod(request!)
+   returnString$=request!.getResponseBodyAsString()
+   restView!.setText(returnString$)
+   restStatus!.setText(getBalanceURL$)
+break
+SWEND
+
+return
+
+REM Callback routine called when the fontchooser's Cancel button is
+REM pressed or the window is closed without selecting a font
+CANCEL:
+RELEASE
+
+

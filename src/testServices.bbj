@@ -1,0 +1,146 @@
+declare BBjServletData sData!
+
+myServlet! = new myServlet()
+sData! = BBjAPI().getServletData()
+sData!.setCallback(sData!.ON_WEB_CONNECTION, myServlet!, "customer")
+
+process_events
+
+REM ============================================================
+REM Servlet Class
+REM ============================================================
+class public myServlet
+
+    method public void customer(BBjServletEvent p_event!)
+
+        declare BBjHttpResponse response!
+        declare BBjHttpRequest request!
+
+        LET chan = UNT
+        request! = p_event!.getHttpRequest()
+        response! = p_event!.getHttpResponse()
+        response!.setContentType("text/html")
+        open(chan)"JSERVLET"
+        finished = 0 
+
+        REM ==========================================
+        REM HTTP Customers 
+        REM ==========================================
+        if (request!.getMethod() = "GET" and request!.getPathInfo()="/customers" ) then
+            REM Get customers
+            customersMap! = #getCustomers()
+            it! = customersMap!.keySet().iterator()
+            print(chan)"<html><body><h1>Chile Customers</h1>"
+            
+            while it!.hasNext()
+                print(chan) str(it!.next()) + "<br>"
+            wend
+            print(chan) "</body></html>"
+            finished = 1
+        endif
+
+        REM ==========================================
+        REM JSON Customers 
+        REM ==========================================
+        if (request!.getMethod() = "GET" and request!.getPathInfo()="/json/customers" ) then
+            REM Get customers
+            customersMap! = #getCustomers()
+            it! = customersMap!.keySet().iterator()
+
+            json$ = "{ ""customers"" : ["
+            while it!.hasNext()
+                json$ = json$ + " {""name"":""" + str(it!.next()) + """},"
+            wend
+            json$ = json$(1,len(json$)-1)
+            json$ = json$ + "] }"
+            print(chan) json$
+            finished = 1
+        endif
+
+        REM ==========================================
+        REM HTTP Balance 
+        REM ==========================================
+        if (request!.getMethod() = "GET" and request!.getPathInfo()="/balance" ) then
+            REM Get customer balance
+            custNum$ = request!.getParameter("custnum",err=*NEXT)
+            if (custNum$ = "") then
+                print(chan)"<html><body>You must supply a custnum parameter, such as:<br>"
+                print(chan)"&nbsp;&nbsp;<a href='/servlet/ChileCustomer/balance?custnum=10'>/servlet/ChileCustomer/balance?custnum=10</a> to GET a customer's balance</body></html>"
+                finished = 1
+            else
+                custBal$ = #getCustomerBalance(custNum$)
+                print(chan)"<html><body><h1>Chile Customers</h1>"
+                if (custBal$ = "ERR") then
+                    print(chan) "Could not find custnum " + custNum$ + " in the database"
+                else
+                    custBal$ = "$"+ cvs(str(num(custBal$):"#,###,##0.00"),3)
+                    print(chan) "Customer #" + custNum$ + " has a balance of " + custBal$
+                endif
+                print(chan) "</body></html>"
+                finished = 1
+            endif
+        endif
+
+        REM ==========================================
+        REM HTTP Usage and default 
+        REM ==========================================
+        if (finished = 0) then 
+            print(chan)"<html><body><h1>Hello from the ChileCompany REST WS</h1>"
+            print(chan)"Sample usage:"
+            print(chan)"<br>&nbsp;Goto <a href='/servlet/ChileCustomer/customers'>/servlet/ChileCustomer/customers</a> to GET a list of customers"
+            print(chan)"<br>&nbsp;Goto <a href='/servlet/ChileCustomer/json/customers'>/servlet/ChileCustomer/json/customers</a> to GET a list of customersin JSON format"
+            print(chan)"<br>&nbsp;Goto <a href='/servlet/ChileCustomer/balance?custnum=10'>/servlet/ChileCustomer/balance?custnum=10</a> to GET a custnum 10's balance</body></html>"
+
+        endif
+        close(chan)
+
+    methodend
+
+
+REM ==========================================
+    method public java.util.HashMap getCustomers()
+REM ==========================================
+
+        declare java.util.HashMap customersMap!
+        customersMap! = new java.util.HashMap()
+
+        database$ = "ChileCompany"
+        modes$ = ""
+        select$ = "select cvs(FIRST_NAME,3)+' '+cvs(LAST_NAME,3) as Name, BILL_ADDR1, CITY, STATE, POST_CODE from customer"
+        customerRS! = BBJAPI().createSQLRecordSet(database$,modes$,select$)
+        customerRS!.first()
+        while 1
+            customerRD! = customerRS!.getCurrentRecordData()
+            custName$ = customerRD!.getFieldValue("Name")
+            custAddress$ = customerRD!.getFieldValue("BILL_ADDR1")
+            custAddress$ = custAddress$ + "<br>" + customerRD!.getFieldValue("CITY")
+            custAddress$ = custAddress$ + ", " + customerRD!.getFieldValue("STATE")
+            custAddress$ = custAddress$ + " " + customerRD!.getFieldValue("POST_CODE")
+            customersMap!.put(custName$,custAddress$)
+            customerRS!.next(err=*BREAK)
+        wend
+
+        methodret customersMap!
+
+    methodend
+
+REM ==========================================
+    method public BBjString getCustomerBalance(BBjString custNum$)
+REM ==========================================
+        while len(custNum$) < 6
+            custNum$ = "0" + custNum$
+        wend
+        
+        database$ = "ChileCompany"
+        modes$ = ""
+        select$ = "select current_bal from customer where cust_num = '" + custNum$ + "'"
+        customerRS! = BBJAPI().createSQLRecordSet(database$,modes$,select$)
+        if customerRS!.getRecordCount() < 1 then methodret "ERR"
+        customerRS!.first()
+        customerRD! = customerRS!.getCurrentRecordData()
+        methodret customerRD!.getFieldValue("current_bal")
+
+    methodend
+
+
+classend

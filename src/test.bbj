@@ -1,0 +1,25 @@
+REM /**
+REM  * test.bbj
+REM  * @author jasonj
+REM  *
+REM  */
+
+declare BBjAdmin admin!
+declare BBjServletRegistry registry!
+declare BBjConfig config!
+declare BBjAppConfig application!
+ 
+REM create
+config! = BBjAPI().getConfig()
+application! = config!.makeEmptyAppConfig()
+application!.setProgramName("servlet.bbj")
+
+REM obtain
+admin! = BBjAPI().getAdmin("admin", "admin123")
+registry! = admin!.getServletRegistry()
+
+REM publish
+registry!.unpublish("/example", err=*next)
+registry!.publish("/example", application!)
+
+data! = BBjAPI().getServletData()
